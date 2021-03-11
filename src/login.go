@@ -80,7 +80,11 @@ func defineEnvironment(usr *sysuser, conf *config, d *desktop) {
 	usr.setenv(envXdgRuntimeDir, "/run/user/"+usr.strUid())
 	usr.setenv(envXdgSeat, "seat0")
 	usr.setenv(envXdgSessionClass, "user")
-	usr.setenv(envShell, getUserShell(usr))
+	shell := getUserShell(usr)
+	if shell == "" {
+		shell = "/usr/bin/bash"
+	}
+	usr.setenv(envShell, shell)
 	usr.setenv(envLang, conf.lang)
 	usr.setenv(envPath, os.Getenv(envPath))
 
@@ -116,7 +120,13 @@ func getUserShell(usr *sysuser) string {
 	handleErr(err)
 
 	ent := strings.Split(strings.TrimSuffix(string(out), "\n"), ":")
-	return ent[6]
+	shellCmdline := ent[6]
+	info, err := os.Stat(shellCmdline)
+	if err != nil || info.IsDir() {
+		return ""
+	}
+
+	return shellCmdline
 }
 
 // Prepares and stars Wayland session for authorized user.
@@ -229,6 +239,10 @@ func xorg(usr *sysuser, d *desktop, conf *config) {
 // Prepares command for starting GUI.
 func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, string) {
 	strExec, allowStartupPrefix := getStrExec(d)
+	shell := getUserShell(usr)
+	if shell == "" {
+		shell = "/usr/bin/bash"
+	}
 
 	startScript := false
 
@@ -248,15 +262,16 @@ func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, strin
 
 	arrExec := strings.Split(strExec, " ")
 
+	//need with sh --login
 	var cmd *exec.Cmd
 	if len(arrExec) > 1 {
 		if startScript {
-			cmd = cmdAsUser(usr, "/bin/sh", arrExec...)
+			cmd = cmdAsUser(usr, shell, "--login", "-c", strExec)
 		} else {
-			cmd = cmdAsUser(usr, arrExec[0], arrExec...)
+			cmd = cmdAsUser(usr, shell, "--login", "-c", strExec)
 		}
 	} else {
-		cmd = cmdAsUser(usr, arrExec[0])
+		cmd = cmdAsUser(usr, shell, "--login", "-c", strExec)
 	}
 
 	return cmd, strExec
