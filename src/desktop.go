@@ -91,7 +91,16 @@ func selectDesktop(usr *sysuser, conf *config) *desktop {
 					fmt.Print(", ")
 				}
 			}
-			fmt.Printf("[%d] %s", i, v.name)
+			envStr := ""
+			switch v.env {
+			case Xorg:
+				envStr = "X11"
+			case Wayland:
+				envStr = "Wayland"
+			case Custom:
+				envStr = "Unknow"
+			}
+			fmt.Printf("[%d] %s -- %s", i, v.name, envStr)
 		}
 		fmt.Printf("\nSelect [%d]: ", lastDesktop)
 

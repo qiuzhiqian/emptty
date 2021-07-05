@@ -1,5 +1,9 @@
+[emptty]
 # TTY, where emptty will start.
-TTY_NUMBER=7
+TTY_NUMBER=1
+
+# PAM Service
+#PAM_SERVICE=emptty
 
 # Enables switching to defined TTY number.
 SWITCH_TTY=true

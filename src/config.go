@@ -1,8 +1,9 @@
 package src
 
 import (
-	"os"
 	"strconv"
+
+	ini "gopkg.in/ini.v1"
 )
 
 const (
@@ -53,6 +54,7 @@ type config struct {
 	autologin          bool
 	autologinSession   string
 	tty                int
+	pamService         string
 	switchTTY          bool
 	printIssue         bool
 	lang               string
@@ -70,7 +72,7 @@ type config struct {
 }
 
 // LoadConfig handles loading of application configuration.
-func loadConfig(path string) *config {
+func loadConfig(path string) (*config, error) {
 	c := config{
 		daemonMode:         false,
 		tty:                0,
@@ -92,58 +94,45 @@ func loadConfig(path string) *config {
 		displayStopScript:  "",
 	}
 
-	defaultLang := os.Getenv(envLang)
-	if defaultLang != "" {
-		c.lang = defaultLang
-	} else {
-		c.lang = "en_US.UTF-8"
+	file, err := ini.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	empttySession, err := file.GetSection("emptty")
+	if err != nil {
+		return nil, err
 	}
 
-	if fileExists(path) {
-		err := readProperties(path, func(key string, value string) {
-			switch key {
-			case confTTYnumber:
-				c.tty = parseTTY(value, "0")
-			case confSwitchTTY:
-				c.switchTTY = parseBool(value, "true")
-			case confPrintIssue:
-				c.printIssue = parseBool(value, "true")
-			case confDefaultUser:
-				c.defaultUser = sanitizeValue(value, "")
-			case confAutologin:
-				c.autologin = parseBool(value, "false")
-			case confAutologinSession:
-				c.autologinSession = sanitizeValue(value, "")
-			case confLang:
-				c.lang = sanitizeValue(value, "en_US.UTF-8")
-			case confDbusLaunch:
-				c.dbusLaunch = parseBool(value, "true")
-			case confXinitrcLaunch:
-				c.xinitrcLaunch = parseBool(value, "false")
-			case confVerticalSelection:
-				c.verticalSelection = parseBool(value, "false")
-			case confLogging:
-				c.logging = parseLogging(value, constLogDefault)
-			case confXorgArgs:
-				c.xorgArgs = sanitizeValue(value, "")
-			case confLoggingFile:
-				c.loggingFile = sanitizeValue(value, "")
-			case confDynamicMotd:
-				c.dynamicMotd = parseBool(value, "false")
-			case confFgColor:
-				c.fgColor = convertColor(sanitizeValue(value, ""), true)
-			case confBgColor:
-				c.bgColor = convertColor(sanitizeValue(value, ""), false)
-			case confDisplayStartScript:
-				c.displayStartScript = sanitizeValue(value, "")
-			case confDisplayStopScript:
-				c.displayStopScript = sanitizeValue(value, "")
-			}
-		})
-		handleErr(err)
+	c.tty = empttySession.Key("TTY_NUMBER").MustInt(1)
+	c.pamService = empttySession.Key("PAM_SERVICE").MustString("emptty")
+	c.switchTTY = empttySession.Key("SWITCH_TTY").MustBool(true)
+	c.printIssue = empttySession.Key("PRINT_ISSUE").MustBool(true)
+	c.defaultUser = empttySession.Key("DEFAULT_USER").MustString("")
+	c.autologin = empttySession.Key("AUTOLOGIN").MustBool(false)
+	c.autologinSession = empttySession.Key("AUTOLOGIN_SESSION").MustString("")
+	c.lang = empttySession.Key("LANG").MustString("en_US.UTF-8")
+	c.dbusLaunch = empttySession.Key("DBUS_LAUNCH").MustBool(true)
+	c.xinitrcLaunch = empttySession.Key("XINITRC_LAUNCH").MustBool(false)
+	c.verticalSelection = empttySession.Key("VERTICAL_SELECTION").MustBool(false)
+	val := empttySession.Key("LOGGING").MustString("default")
+	switch val {
+	case constLogDisabled:
+		c.logging = Disabled
+	case constLogAppending:
+		c.logging = Appending
+	case constLogDefault:
+		c.logging = Default
 	}
 
-	return &c
+	c.xorgArgs = empttySession.Key("XORG_ARGS").MustString("")
+	c.loggingFile = empttySession.Key("LOGGING_FILE").MustString("")
+	c.dynamicMotd = empttySession.Key("DYNAMIC_MOTD").MustBool(false)
+	c.fgColor = convertColor(empttySession.Key("FG_COLOR").MustString(""), true)
+	c.bgColor = convertColor(empttySession.Key("BG_COLOR").MustString(""), false)
+	c.displayStartScript = empttySession.Key("DISPLAY_START_SCRIPT").MustString("")
+	c.displayStopScript = empttySession.Key("DISPLAY_STOP_SCRIPT").MustString("")
+
+	return &c, nil
 }
 
 // Parse TTY number.

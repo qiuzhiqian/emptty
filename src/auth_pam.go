@@ -24,7 +24,7 @@ var trans *pam.Transaction
 func authUser(conf *config) *sysuser {
 	var err error
 
-	trans, err = pam.StartFunc("emptty", conf.defaultUser, func(s pam.Style, msg string) (string, error) {
+	trans, err = pam.StartFunc(conf.pamService, conf.defaultUser, func(s pam.Style, msg string) (string, error) {
 		switch s {
 		case pam.PromptEchoOff:
 			if conf.autologin {
@@ -54,8 +54,11 @@ func authUser(conf *config) *sysuser {
 			fmt.Println(msg)
 			return "", nil
 		}
-		return "", errors.New("Unrecognized message style")
+		return "", errors.New("unrecognized message style")
 	})
+	if err != nil {
+		return nil
+	}
 
 	err = trans.Authenticate(pam.Silent)
 	if err != nil {

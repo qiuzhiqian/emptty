@@ -21,7 +21,11 @@ func Main() {
 		os.Exit(0)
 	}
 
-	conf := loadConfig(pathConfigFile)
+	/*conf := loadConfig(pathConfigFile)*/
+	conf, err := loadConfig(pathConfigFile)
+	if err != nil {
+		os.Exit(0)
+	}
 
 	for i, arg := range os.Args {
 		switch arg {
@@ -49,6 +53,12 @@ func Main() {
 	if conf.daemonMode {
 		stopDaemon(conf, fTTY)
 	}
+}
+
+// child-session process
+// emptty --> child-session --> greeter/session entry
+func Child() error {
+	return nil
 }
 
 // Prints help
