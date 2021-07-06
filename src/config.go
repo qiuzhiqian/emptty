@@ -1,6 +1,7 @@
 package src
 
 import (
+	"os"
 	"strconv"
 
 	ini "gopkg.in/ini.v1"
@@ -103,6 +104,12 @@ func loadConfig(path string) (*config, error) {
 		return nil, err
 	}
 
+	defLang := "en_US.UTF-8"
+	tmpLang, ok := os.LookupEnv("LANG")
+	if ok {
+		defLang = tmpLang
+	}
+
 	c.tty = empttySession.Key("TTY_NUMBER").MustInt(1)
 	c.pamService = empttySession.Key("PAM_SERVICE").MustString("emptty")
 	c.switchTTY = empttySession.Key("SWITCH_TTY").MustBool(true)
@@ -110,7 +117,7 @@ func loadConfig(path string) (*config, error) {
 	c.defaultUser = empttySession.Key("DEFAULT_USER").MustString("")
 	c.autologin = empttySession.Key("AUTOLOGIN").MustBool(false)
 	c.autologinSession = empttySession.Key("AUTOLOGIN_SESSION").MustString("")
-	c.lang = empttySession.Key("LANG").MustString("en_US.UTF-8")
+	c.lang = empttySession.Key("LANG").MustString(defLang)
 	c.dbusLaunch = empttySession.Key("DBUS_LAUNCH").MustBool(true)
 	c.xinitrcLaunch = empttySession.Key("XINITRC_LAUNCH").MustBool(false)
 	c.verticalSelection = empttySession.Key("VERTICAL_SELECTION").MustBool(false)
