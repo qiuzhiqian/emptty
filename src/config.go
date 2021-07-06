@@ -106,7 +106,7 @@ func loadConfig(path string) (*config, error) {
 
 	defLang := "en_US.UTF-8"
 	tmpLang, ok := os.LookupEnv("LANG")
-	if ok {
+	if ok && tmpLang != "" {
 		defLang = tmpLang
 	}
 

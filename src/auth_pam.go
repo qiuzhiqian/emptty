@@ -69,8 +69,13 @@ func authUser(conf *config) *sysuser {
 	}
 	log.Print("Authenticate OK")
 
+	/* Check account is valid */
 	err = trans.AcctMgmt(pam.Silent)
-	handleErr(err)
+	if err != nil {
+		trans.ChangeAuthTok(pam.Silent)
+		handleErr(err)
+	}
+	//handleErr(err)
 
 	err = trans.SetItem(pam.Tty, "tty"+conf.strTTY())
 	handleErr(err)
