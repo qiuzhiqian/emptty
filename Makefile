@@ -1,4 +1,6 @@
 PREFIX = /usr
+
+export GO111MODULE=on
 GOBUILD = go build -v
 
 all: build

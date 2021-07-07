@@ -1,7 +1,6 @@
 package src
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -20,7 +19,7 @@ func TestGetStrExec(t *testing.T) {
 	}
 }
 
-func TestPrepareGuiCommandWithChild(t *testing.T) {
+/*func TestPrepareGuiCommandWithChild(t *testing.T) {
 	c := &config{}
 	u := &sysuser{uid: 3000, gid: 2000}
 	d := &desktop{path: "/dev/null", exec: "/usr/bin/none"}
@@ -36,9 +35,9 @@ func TestPrepareGuiCommandWithChild(t *testing.T) {
 	if exec != "/dev/null /usr/bin/none" {
 		t.Errorf("TestPrepareGuiCommandWithChild: result exec command is unexpected: '%s'", exec)
 	}
-}
+}*/
 
-func TestPrepareGuiCommandXinitrc(t *testing.T) {
+/*func TestPrepareGuiCommandXinitrc(t *testing.T) {
 	c := &config{}
 	u := &sysuser{uid: 3000, gid: 2000, homedir: getTestingPath("userHome3")}
 	d := &desktop{path: "/dev/null", exec: "/usr/bin/none"}
@@ -95,4 +94,4 @@ func TestPrepareGuiCommandXinitrc(t *testing.T) {
 	if !strings.HasPrefix(exec, "dbus-launch") {
 		t.Errorf("TestPrepareGuiCommandXinitrc: result exec command should start with dbus-launch: '%s'", exec)
 	}
-}
+}*/

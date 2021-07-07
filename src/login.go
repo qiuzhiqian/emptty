@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 )
@@ -29,6 +28,7 @@ const (
 	envPath            = "PATH"
 	envDesktopSession  = "DESKTOP_SESSION"
 	envXdgSessDesktop  = "XDG_SESSION_DESKTOP"
+	envSessionBusAddr  = "DBUS_SESSION_BUS_ADDRESS"
 )
 
 // Login into graphical environment
@@ -56,11 +56,16 @@ func login(conf *config) {
 
 	runDisplayScript(conf.displayStartScript)
 
-	switch d.env {
+	/*switch d.env {
 	case Wayland:
 		wayland(usr, d, conf)
 	case Xorg:
 		xorg(usr, d, conf)
+	}*/
+	session := NewSession(usr, d, conf)
+	err := session.Start()
+	if err != nil {
+		panic(err)
 	}
 
 	closeAuth()
@@ -96,6 +101,12 @@ func defineEnvironment(usr *sysuser, conf *config, d *desktop) {
 		usr.setenv(envXdgSessDesktop, d.child.name)
 	}
 
+	dbusAddr, ok := os.LookupEnv(envSessionBusAddr)
+	log.Println("dbus env:", dbusAddr, ok)
+	if ok && dbusAddr != "" {
+		usr.setenv(envSessionBusAddr, dbusAddr)
+	}
+
 	log.Print("Defined Environment")
 
 	// create XDG folder
@@ -129,119 +140,16 @@ func getUserShell(usr *sysuser) string {
 	return shellCmdline
 }
 
-// Prepares and stars Wayland session for authorized user.
-func wayland(usr *sysuser, d *desktop, conf *config) {
-	// Set environment
-	usr.setenv(envXdgSessionType, "wayland")
-	log.Print("Defined Wayland environment")
-
-	// start Wayland
-	wayland, strExec := prepareGuiCommand(usr, d, conf)
-	registerInterruptHandler(wayland)
-	log.Print("Starting " + strExec)
-	err := wayland.Start()
-	handleErr(err)
-
-	// make utmp entry
-	utmpEntry := addUtmpEntry(usr.username, wayland.Process.Pid, conf.strTTY(), "")
-	log.Print("Added utmp entry")
-
-	wayland.Wait()
-	log.Print(strExec + " finished")
-
-	// end utmp entry
-	endUtmpEntry(utmpEntry)
-	log.Print("Ended utmp entry")
-}
-
-// Prepares and starts Xorg session for authorized user.
-func xorg(usr *sysuser, d *desktop, conf *config) {
-	freeDisplay := strconv.Itoa(getFreeXDisplay())
-
-	// Set environment
-	usr.setenv(envXdgSessionType, "x11")
-	usr.setenv(envXauthority, usr.getenv(envXdgRuntimeDir)+"/.emptty-xauth")
-	usr.setenv(envDisplay, ":"+freeDisplay)
-	os.Setenv(envXauthority, usr.getenv(envXauthority))
-	os.Setenv(envDisplay, usr.getenv(envDisplay))
-	log.Print("Defined Xorg environment")
-
-	// create xauth
-	os.Remove(usr.getenv(envXauthority))
-
-	// generate mcookie
-	cmd := cmdAsUser(usr, "/usr/bin/mcookie")
-	mcookie, err := cmd.Output()
-	handleErr(err)
-	log.Print("Generated mcookie")
-
-	// generate xauth
-	cmd = cmdAsUser(usr, "/usr/bin/xauth", "add", usr.getenv(envDisplay), ".", string(mcookie))
-	_, err = cmd.Output()
-	handleErr(err)
-
-	log.Print("Generated xauthority")
-
-	// start X
-	log.Print("Starting Xorg")
-
-	xorgArgs := []string{"vt" + conf.strTTY(), usr.getenv(envDisplay)}
-
-	if conf.xorgArgs != "" {
-		arrXorgArgs := strings.Split(conf.xorgArgs, " ")
-		xorgArgs = append(xorgArgs, arrXorgArgs...)
-	}
-
-	xorg := exec.Command("/usr/bin/Xorg", xorgArgs...)
-	xorg.Env = append(os.Environ())
-	xorg.Start()
-	if xorg.Process == nil {
-		handleStrErr("Xorg is not running")
-	}
-	log.Print("Started Xorg")
-
-	disp := &xdisplay{}
-	disp.dispName = usr.getenv(envDisplay)
-	handleErr(disp.openXDisplay())
-
-	// make utmp entry
-	utmpEntry := addUtmpEntry(usr.username, xorg.Process.Pid, conf.strTTY(), usr.getenv(envDisplay))
-	log.Print("Added utmp entry")
-
-	// start xinit
-	xinit, strExec := prepareGuiCommand(usr, d, conf)
-	registerInterruptHandler(xinit, xorg)
-	log.Print("Starting " + strExec)
-	err = xinit.Start()
-	if err != nil {
-		xorg.Process.Signal(os.Interrupt)
-		xorg.Wait()
-		handleErr(err)
-	}
-
-	xinit.Wait()
-	log.Print(strExec + " finished")
-
-	// Stop Xorg
-	xorg.Process.Signal(os.Interrupt)
-	xorg.Wait()
-	log.Print("Interrupted Xorg")
-
-	// Remove auth
-	os.Remove(usr.getenv(envXauthority))
-	log.Print("Cleaned up xauthority")
-
-	// End utmp entry
-	endUtmpEntry(utmpEntry)
-	log.Print("Ended utmp entry")
-}
-
 // Prepares command for starting GUI.
-func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, string) {
+func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, error) {
 	strExec, allowStartupPrefix := getStrExec(d)
 	shell := getUserShell(usr)
 	if shell == "" {
-		shell = "/usr/bin/bash"
+		bashPath, err := exec.LookPath("bash")
+		if err != nil {
+			return nil, err
+		}
+		shell = bashPath
 	}
 
 	startScript := false
@@ -255,8 +163,15 @@ func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, strin
 			strExec = usr.homedir + "/.xinitrc " + strExec
 		}
 
-		if conf.dbusLaunch && !strings.Contains(strExec, "dbus-launch") && allowStartupPrefix {
-			strExec = "dbus-launch " + strExec
+		// if has DBUS_SESSION_BUS_ADDRESS,need not run dbus-launch
+		dbusAddr, ok := os.LookupEnv(envSessionBusAddr)
+		if (!ok || dbusAddr == "") && !strings.Contains(strExec, "dbus-launch") && allowStartupPrefix {
+			//strExec = "dbus-launch " + strExec
+		}
+
+		// check session wrapper
+		if conf.sessionWrapper != "" {
+			strExec = fmt.Sprintf("%s %s", conf.sessionWrapper, strExec)
 		}
 	}
 
@@ -274,7 +189,7 @@ func prepareGuiCommand(usr *sysuser, d *desktop, conf *config) (*exec.Cmd, strin
 		cmd = cmdAsUser(usr, shell, "--login", "-c", strExec)
 	}
 
-	return cmd, strExec
+	return cmd, nil
 }
 
 // Gets exec path from desktop and returns true, if command allows dbus-launch.

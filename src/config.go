@@ -70,6 +70,7 @@ type config struct {
 	bgColor            string
 	displayStartScript string
 	displayStopScript  string
+	sessionWrapper     string
 }
 
 // LoadConfig handles loading of application configuration.
@@ -93,6 +94,7 @@ func loadConfig(path string) (*config, error) {
 		bgColor:            "",
 		displayStartScript: "",
 		displayStopScript:  "",
+		sessionWrapper:     "",
 	}
 
 	file, err := ini.Load(path)
@@ -138,6 +140,7 @@ func loadConfig(path string) (*config, error) {
 	c.bgColor = convertColor(empttySession.Key("BG_COLOR").MustString(""), false)
 	c.displayStartScript = empttySession.Key("DISPLAY_START_SCRIPT").MustString("")
 	c.displayStopScript = empttySession.Key("DISPLAY_STOP_SCRIPT").MustString("")
+	c.sessionWrapper = empttySession.Key("SESSION_WRAPPER").MustString("")
 
 	return &c, nil
 }
