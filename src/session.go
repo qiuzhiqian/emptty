@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Session interface {
@@ -18,11 +19,35 @@ type BaseSession struct {
 	conf *config
 }
 
-type XSession struct {
-	BaseSession
+func (bs *BaseSession) auth() error {
+	bs.usr = authUser(bs.conf)
+	return nil
 }
 
-func (s *XSession) Start() error {
+func (bs *BaseSession) desktopSelect() error {
+	//var d *desktop
+	var usrLang = ""
+	bs.d, usrLang = loadUserDesktop(bs.usr.homedir)
+
+	if bs.d == nil || (bs.d != nil && bs.d.selection) {
+		selectedDesktop := selectDesktop(bs.usr, bs.conf)
+		if bs.d != nil && bs.d.selection {
+			bs.d.child = selectedDesktop
+			bs.d.env = bs.d.child.env
+		} else {
+			bs.d = selectedDesktop
+		}
+	}
+
+	if usrLang != "" {
+		bs.conf.lang = usrLang
+	}
+
+	defineEnvironment(bs.usr, bs.conf, bs.d)
+	return nil
+}
+
+func (s *BaseSession) startX() error {
 	freeDisplay := strconv.Itoa(getFreeXDisplay())
 
 	// Set environment
@@ -107,11 +132,7 @@ func (s *XSession) Start() error {
 	return nil
 }
 
-type WaylandSession struct {
-	BaseSession
-}
-
-func (s *WaylandSession) Start() error {
+func (s *BaseSession) startWayland() error {
 	// Set environment
 	s.usr.setenv(envXdgSessionType, "wayland")
 	log.Print("Defined Wayland environment")
@@ -139,24 +160,33 @@ func (s *WaylandSession) Start() error {
 	return nil
 }
 
-func NewSession(usr *sysuser, d *desktop, conf *config) Session {
-	switch d.env {
-	case Wayland:
-		return &WaylandSession{
-			BaseSession{
-				usr:  usr,
-				d:    d,
-				conf: conf,
-			},
-		}
+func (bs *BaseSession) Start(wg *sync.WaitGroup) error {
+	bs.auth()
+	bs.desktopSelect()
+
+	defineEnvironment(bs.usr, bs.conf, bs.d)
+	runDisplayScript(bs.conf.displayStartScript)
+
+	switch bs.d.env {
 	case Xorg:
-		return &XSession{
-			BaseSession{
-				usr:  usr,
-				d:    d,
-				conf: conf,
-			},
-		}
+		bs.startX()
+	case Wayland:
+		bs.startWayland()
 	}
+	wg.Done()
+	return nil
+}
+
+func NewSession(conf *config) *BaseSession {
+	session := BaseSession{
+		conf: conf,
+	}
+
+	return &session
+}
+
+func (bs *BaseSession) Destory() error {
+	closeAuth()
+	runDisplayScript(bs.conf.displayStopScript)
 	return nil
 }

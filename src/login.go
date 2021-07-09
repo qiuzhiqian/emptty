@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -33,44 +34,17 @@ const (
 
 // Login into graphical environment
 func login(conf *config) {
-	usr := authUser(conf)
+	var wg sync.WaitGroup
 
-	var d *desktop
-	d, usrLang := loadUserDesktop(usr.homedir)
-
-	if d == nil || (d != nil && d.selection) {
-		selectedDesktop := selectDesktop(usr, conf)
-		if d != nil && d.selection {
-			d.child = selectedDesktop
-			d.env = d.child.env
-		} else {
-			d = selectedDesktop
-		}
+	for i := 0; i < 1; i++ {
+		//log.Println("do ", i)
+		session := NewSession(conf)
+		wg.Add(1)
+		go session.Start(&wg)
 	}
 
-	if usrLang != "" {
-		conf.lang = usrLang
-	}
-
-	defineEnvironment(usr, conf, d)
-
-	runDisplayScript(conf.displayStartScript)
-
-	/*switch d.env {
-	case Wayland:
-		wayland(usr, d, conf)
-	case Xorg:
-		xorg(usr, d, conf)
-	}*/
-	session := NewSession(usr, d, conf)
-	err := session.Start()
-	if err != nil {
-		panic(err)
-	}
-
-	closeAuth()
-
-	runDisplayScript(conf.displayStopScript)
+	wg.Wait()
+	//log.Println("wait end")
 }
 
 // Prepares environment and env variables for authorized user.

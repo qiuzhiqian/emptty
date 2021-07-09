@@ -2,6 +2,7 @@ package src
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -47,7 +48,9 @@ func Main() {
 	}
 
 	initLogger(conf)
+	log.Println("emptty start")
 	printMotd(conf)
+	log.Println("motd end")
 	login(conf)
 
 	if conf.daemonMode {
