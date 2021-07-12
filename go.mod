@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/bgentry/speakeasy v0.1.0 // indirect
+	github.com/godbus/dbus/v5 v5.0.4
 	github.com/msteinert/pam v0.0.0-20200810204841-913b8f8cdf8b
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	gopkg.in/ini.v1 v1.62.0

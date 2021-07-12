@@ -32,19 +32,23 @@ const (
 	envSessionBusAddr  = "DBUS_SESSION_BUS_ADDRESS"
 )
 
+var sessions []*BaseSession
+
 // Login into graphical environment
 func login(conf *config) {
+	go Server()
+
+	sessions = make([]*BaseSession, 0)
+
 	var wg sync.WaitGroup
 
-	for i := 0; i < 1; i++ {
-		//log.Println("do ", i)
-		session := NewSession(conf)
-		wg.Add(1)
-		go session.Start(&wg)
-	}
+	session := NewSession(conf)
+	wg.Add(1)
+	go session.Start(&wg)
+
+	sessions = append(sessions, session)
 
 	wg.Wait()
-	//log.Println("wait end")
 }
 
 // Prepares environment and env variables for authorized user.
@@ -194,8 +198,8 @@ func registerInterruptHandler(cmds ...*exec.Cmd) {
 
 // Catch interrupt signal chan and interrupts all mentioned Cmds.
 func handleInterrupt(c chan os.Signal, cmds ...*exec.Cmd) {
-	<-c
-	log.Print("Catched interrupt signal")
+	sig := <-c
+	log.Println("Catched interrupt signal", sig)
 	for _, cmd := range cmds {
 		cmd.Process.Signal(os.Interrupt)
 		cmd.Wait()
