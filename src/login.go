@@ -11,6 +11,16 @@ import (
 	"syscall"
 )
 
+type Daemon struct {
+	sessions []*BaseSession
+}
+
+func NewDaemon() *Daemon {
+	return &Daemon{
+		sessions: make([]*BaseSession, 0),
+	}
+}
+
 const (
 	envXdgConfigHome   = "XDG_CONFIG_HOME"
 	envXdgRuntimeDir   = "XDG_RUNTIME_DIR"
@@ -32,21 +42,19 @@ const (
 	envSessionBusAddr  = "DBUS_SESSION_BUS_ADDRESS"
 )
 
-var sessions []*BaseSession
-
 // Login into graphical environment
 func login(conf *config) {
+	daemon := NewDaemon()
 	go Server()
-
-	sessions = make([]*BaseSession, 0)
 
 	var wg sync.WaitGroup
 
-	session := NewSession(conf)
-	wg.Add(1)
-	go session.Start(&wg)
-
-	sessions = append(sessions, session)
+	if len(daemon.sessions) == 0 {
+		session := NewSession(conf)
+		daemon.sessions = append(daemon.sessions, session)
+		wg.Add(1)
+		go session.Start(&wg)
+	}
 
 	wg.Wait()
 }

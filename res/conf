@@ -1,6 +1,6 @@
 [emptty]
 # TTY, where emptty will start.
-TTY_NUMBER=1
+MIN_TTY=1
 
 # PAM Service
 #PAM_SERVICE=emptty

@@ -35,7 +35,7 @@ func Main() {
 			if len(os.Args) > i+1 {
 				tty := parseTTY(os.Args[i+1], "0")
 				if tty > 0 {
-					conf.tty = tty
+					conf.minTty = tty
 				}
 			}
 		case "-d", "--daemon":

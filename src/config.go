@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	confTTYnumber          = "TTY_NUMBER"
+	confMinTTY             = "MIN_TTY"
 	confSwitchTTY          = "SWITCH_TTY"
 	confPrintIssue         = "PRINT_ISSUE"
 	confDefaultUser        = "DEFAULT_USER"
@@ -54,7 +54,7 @@ type config struct {
 	defaultUser        string
 	autologin          bool
 	autologinSession   string
-	tty                int
+	minTty             int
 	pamService         string
 	switchTTY          bool
 	printIssue         bool
@@ -77,7 +77,7 @@ type config struct {
 func loadConfig(path string) (*config, error) {
 	c := config{
 		daemonMode:         false,
-		tty:                0,
+		minTty:             0,
 		switchTTY:          true,
 		printIssue:         true,
 		defaultUser:        "",
@@ -112,7 +112,7 @@ func loadConfig(path string) (*config, error) {
 		defLang = tmpLang
 	}
 
-	c.tty = empttySession.Key("TTY_NUMBER").MustInt(1)
+	c.minTty = empttySession.Key(confMinTTY).MustInt(1)
 	c.pamService = empttySession.Key("PAM_SERVICE").MustString("emptty")
 	c.switchTTY = empttySession.Key("SWITCH_TTY").MustBool(true)
 	c.printIssue = empttySession.Key("PRINT_ISSUE").MustBool(true)
@@ -170,5 +170,5 @@ func parseLogging(strLogging string, defaultValue string) enLogging {
 
 // Returns TTY number converted to string
 func (c *config) strTTY() string {
-	return strconv.Itoa(c.tty)
+	return strconv.Itoa(c.minTty)
 }
