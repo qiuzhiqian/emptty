@@ -48,10 +48,7 @@ func Main() {
 		}
 	}
 
-	//var fTTY *os.File
-	//if conf.daemonMode {
-	//	fTTY = startDaemon(conf)
-	//}
+	fTTY := startDaemon(conf)
 
 	initLogger(conf)
 	log.Println("emptty start")
@@ -60,7 +57,7 @@ func Main() {
 	login(conf)
 
 	//if conf.daemonMode {
-	//	stopDaemon(conf, fTTY)
+	stopDaemon(conf, fTTY)
 	//}
 }
 

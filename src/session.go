@@ -85,7 +85,7 @@ func (s *BaseSession) startX() error {
 	}
 
 	xorg := exec.Command("/usr/bin/Xorg", xorgArgs...)
-	xorg.Env = append(os.Environ())
+	xorg.Env = append(xorg.Env, os.Environ()...)
 	xorg.Start()
 	if xorg.Process == nil {
 		handleStrErr("Xorg is not running")
@@ -161,6 +161,7 @@ func (s *BaseSession) startWayland() error {
 }
 
 func (bs *BaseSession) Start(wg *sync.WaitGroup) error {
+	log.Println("begin auth")
 	bs.auth()
 	bs.desktopSelect()
 

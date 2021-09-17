@@ -45,11 +45,12 @@ const (
 // Login into graphical environment
 func login(conf *config) {
 	daemon := NewDaemon()
-	go Server()
+	//go Server()
 
 	var wg sync.WaitGroup
 
 	if len(daemon.sessions) == 0 {
+		log.Println("add one session")
 		session := NewSession(conf)
 		daemon.sessions = append(daemon.sessions, session)
 		wg.Add(1)
