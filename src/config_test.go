@@ -3,9 +3,12 @@ package src
 import "testing"
 
 func TestLoadConfig(t *testing.T) {
-	conf := loadConfig(getTestingPath("conf"))
+	conf := newDefaultConfig()
+	loadConfig(conf, getTestingPath("emptty.conf"))
 
-	if conf.tty != 14 || conf.strTTY() != "14" {
+	t.Logf("%+v", conf)
+
+	if conf.minTty != 1 || conf.strTTY() != "1" {
 		t.Error("TestLoadConfig: TTY value is not correct")
 	}
 
@@ -17,7 +20,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Error("TestLoadConfig: PRINT_ISSUE value is not correct")
 	}
 
-	if conf.defaultUser != "emptty-user" {
+	if conf.defaultUser != "" {
 		t.Error("TestLoadConfig: DEFAULT_USER value is not correct")
 	}
 
@@ -25,7 +28,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Error("TestLoadConfig: AUTOLOGIN value is not correct")
 	}
 
-	if conf.autologinSession != "none" {
+	if conf.autologinSession != "" {
 		t.Error("TestLoadConfig: AUTOLOGIN_SESSION value is not correct")
 	}
 
@@ -75,6 +78,17 @@ func TestLoadConfig(t *testing.T) {
 
 	if conf.displayStopScript != "/usr/bin/none" {
 		t.Error("TestLoadConfig: DISPLAY_STOP_SCRIPT value is not correct")
+	}
+}
+
+func TestLoadConfigDir(t *testing.T) {
+	conf := newDefaultConfig()
+	loadConfig(conf, getTestingPath("emptty.conf"))
+	loadConfigDir(conf, "/etc/emptty.d/")
+	t.Logf("%+v\n", conf)
+
+	if conf.minTty != 11 || conf.strTTY() != "11" {
+		t.Error("TestLoadConfig: TTY value is not correct")
 	}
 }
 

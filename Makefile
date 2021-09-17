@@ -11,7 +11,7 @@ build:
 install:
 	install -Dm755 emptty ${DESTDIR}/usr/bin/emptty
 	mkdir -p ${DESTDIR}/etc/emptty
-	install -Dm644 res/conf ${DESTDIR}/etc/emptty/conf
+	install -Dm644 res/emptty.conf ${DESTDIR}/etc/emptty.conf
 	install -Dm644 res/pam-debian ${DESTDIR}/etc/pam.d/emptty
 	install -Dm644 res/systemd-service ${DESTDIR}/usr/lib/systemd/system/emptty.service
 

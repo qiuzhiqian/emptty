@@ -23,8 +23,13 @@ func Main() {
 		os.Exit(0)
 	}
 
-	/*conf := loadConfig(pathConfigFile)*/
-	conf, err := loadConfig(pathConfigFile)
+	conf := newDefaultConfig()
+	err := loadConfig(conf, pathConfigFile)
+	if err != nil {
+		os.Exit(0)
+	}
+
+	err = loadConfigDir(conf, pathConfigDir)
 	if err != nil {
 		os.Exit(0)
 	}
@@ -43,10 +48,10 @@ func Main() {
 		}
 	}
 
-	var fTTY *os.File
-	if conf.daemonMode {
-		fTTY = startDaemon(conf)
-	}
+	//var fTTY *os.File
+	//if conf.daemonMode {
+	//	fTTY = startDaemon(conf)
+	//}
 
 	initLogger(conf)
 	log.Println("emptty start")
@@ -54,9 +59,9 @@ func Main() {
 	log.Println("motd end")
 	login(conf)
 
-	if conf.daemonMode {
-		stopDaemon(conf, fTTY)
-	}
+	//if conf.daemonMode {
+	//	stopDaemon(conf, fTTY)
+	//}
 }
 
 // child-session process

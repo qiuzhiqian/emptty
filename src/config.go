@@ -1,7 +1,11 @@
 package src
 
 import (
+	"io/fs"
+	"log"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 
 	ini "gopkg.in/ini.v1"
@@ -27,7 +31,8 @@ const (
 	confDisplayStartScript = "DISPLAY_START_SCRIPT"
 	confDisplayStopScript  = "DISPLAY_STOP_SCRIPT"
 
-	pathConfigFile = "/etc/emptty/conf"
+	pathConfigFile = "/etc/emptty.conf"
+	pathConfigDir  = "/etc/emptty.d"
 
 	constLogDefault   = "default"
 	constLogAppending = "appending"
@@ -73,16 +78,16 @@ type config struct {
 	sessionWrapper     string
 }
 
-// LoadConfig handles loading of application configuration.
-func loadConfig(path string) (*config, error) {
-	c := config{
+func newDefaultConfig() *config {
+	c := &config{
 		daemonMode:         false,
-		minTty:             0,
+		minTty:             1,
 		switchTTY:          true,
 		printIssue:         true,
 		defaultUser:        "",
 		autologin:          false,
 		autologinSession:   "",
+		lang:               "en_US.UTF-8",
 		dbusLaunch:         true,
 		xinitrcLaunch:      false,
 		verticalSelection:  false,
@@ -97,34 +102,40 @@ func loadConfig(path string) (*config, error) {
 		sessionWrapper:     "",
 	}
 
+	tmpLang, ok := os.LookupEnv("LANG")
+	if ok && tmpLang != "" {
+		c.lang = tmpLang
+	}
+	return c
+}
+
+// LoadConfig handles loading of application configuration.
+func loadConfig(c *config, path string) error {
 	file, err := ini.Load(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	empttySession, err := file.GetSection("emptty")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	defLang := "en_US.UTF-8"
-	tmpLang, ok := os.LookupEnv("LANG")
-	if ok && tmpLang != "" {
-		defLang = tmpLang
-	}
+	log.Println("load:", path)
 
-	c.minTty = empttySession.Key(confMinTTY).MustInt(1)
-	c.pamService = empttySession.Key("PAM_SERVICE").MustString("emptty")
-	c.switchTTY = empttySession.Key("SWITCH_TTY").MustBool(true)
-	c.printIssue = empttySession.Key("PRINT_ISSUE").MustBool(true)
-	c.defaultUser = empttySession.Key("DEFAULT_USER").MustString("")
-	c.autologin = empttySession.Key("AUTOLOGIN").MustBool(false)
-	c.autologinSession = empttySession.Key("AUTOLOGIN_SESSION").MustString("")
-	c.lang = empttySession.Key("LANG").MustString(defLang)
-	c.dbusLaunch = empttySession.Key("DBUS_LAUNCH").MustBool(true)
-	c.xinitrcLaunch = empttySession.Key("XINITRC_LAUNCH").MustBool(false)
-	c.verticalSelection = empttySession.Key("VERTICAL_SELECTION").MustBool(false)
-	val := empttySession.Key("LOGGING").MustString("default")
-	switch val {
+	setIntValue(&c.minTty, empttySession, confMinTTY)
+	setStringValue(&c.pamService, empttySession, "PAM_SERVICE")
+	setBoolValue(&c.switchTTY, empttySession, "SWITCH_TTY")
+	setBoolValue(&c.printIssue, empttySession, "PRINT_ISSUE")
+	setStringValue(&c.defaultUser, empttySession, "DEFAULT_USER")
+	setBoolValue(&c.autologin, empttySession, "AUTOLOGIN")
+	setStringValue(&c.autologinSession, empttySession, "AUTOLOGIN")
+	setStringValue(&c.lang, empttySession, "LANG")
+	setBoolValue(&c.dbusLaunch, empttySession, "DBUS_LAUNCH")
+	setBoolValue(&c.xinitrcLaunch, empttySession, "XINITRC_LAUNCH")
+	setBoolValue(&c.verticalSelection, empttySession, "VERTICAL_SELECTION")
+	varString := ""
+	setStringValue(&varString, empttySession, "LOGGING")
+	switch varString {
 	case constLogDisabled:
 		c.logging = Disabled
 	case constLogAppending:
@@ -133,16 +144,83 @@ func loadConfig(path string) (*config, error) {
 		c.logging = Default
 	}
 
-	c.xorgArgs = empttySession.Key("XORG_ARGS").MustString("")
-	c.loggingFile = empttySession.Key("LOGGING_FILE").MustString("")
-	c.dynamicMotd = empttySession.Key("DYNAMIC_MOTD").MustBool(false)
-	c.fgColor = convertColor(empttySession.Key("FG_COLOR").MustString(""), true)
-	c.bgColor = convertColor(empttySession.Key("BG_COLOR").MustString(""), false)
-	c.displayStartScript = empttySession.Key("DISPLAY_START_SCRIPT").MustString("")
-	c.displayStopScript = empttySession.Key("DISPLAY_STOP_SCRIPT").MustString("")
-	c.sessionWrapper = empttySession.Key("SESSION_WRAPPER").MustString("")
+	setStringValue(&c.xorgArgs, empttySession, "XORG_ARGS")
+	setStringValue(&c.loggingFile, empttySession, "LOGGING_FILE")
+	setBoolValue(&c.dynamicMotd, empttySession, "DYNAMIC_MOTD")
+	setStringValue(&c.fgColor, empttySession, "FG_COLOR")
+	setStringValue(&c.bgColor, empttySession, "BG_COLOR")
+	setStringValue(&c.displayStartScript, empttySession, "DISPLAY_START_SCRIPT")
+	setStringValue(&c.displayStopScript, empttySession, "DISPLAY_STOP_SCRIPT")
+	setStringValue(&c.sessionWrapper, empttySession, "SESSION_WRAPPER")
+	return nil
+}
 
-	return &c, nil
+func setBoolValue(vari *bool, s *ini.Section, key string) error {
+	k, err := s.GetKey(key)
+	if err != nil || k == nil {
+		return nil
+	}
+
+	val, err := k.Bool()
+	if err != nil {
+		return nil
+	}
+	*(vari) = val
+
+	return nil
+}
+
+func setIntValue(vari *int, s *ini.Section, key string) error {
+	log.Println(key)
+	k, err := s.GetKey(key)
+	if err != nil || k == nil {
+		return nil
+	}
+
+	val, err := k.Int()
+	if err != nil {
+		return nil
+	}
+	*(vari) = val
+
+	return nil
+}
+
+func setStringValue(vari *string, s *ini.Section, key string) error {
+	k, err := s.GetKey(key)
+	if err != nil && k == nil {
+		return nil
+	}
+	*(vari) = k.String()
+
+	return nil
+}
+
+// emptty.d/00_xxx.conf
+func loadConfigDir(c *config, dir string) error {
+	filepath.WalkDir(pathConfigDir, func(path string, d fs.DirEntry, err error) error {
+		if pathConfigDir == path {
+			return nil
+		}
+
+		if d.IsDir() {
+			return fs.SkipDir
+		}
+
+		baseName := filepath.Base(path)
+
+		reg, err1 := regexp.Compile(`^\d\d_[\S]*.conf$`)
+		if err1 != nil {
+			return nil
+		}
+		if !reg.MatchString(baseName) {
+			return nil
+		}
+
+		loadConfig(c, path)
+		return nil
+	})
+	return nil
 }
 
 // Parse TTY number.
