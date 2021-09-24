@@ -1,6 +1,3 @@
-//go:build !nopam
-// +build !nopam
-
 package src
 
 import (
@@ -23,11 +20,9 @@ var trans *pam.Transaction
 //
 // If autologin is enabled, it behaves as user has been authorized.
 func authUser(conf *config) *sysuser {
-	log.Println("authUser")
 	var err error
 
 	trans, err = pam.StartFunc(conf.pamService, conf.defaultUser, func(s pam.Style, msg string) (string, error) {
-		log.Println("StartFunc", s, msg)
 		switch s {
 		case pam.PromptEchoOff:
 			if conf.autologin {
@@ -43,10 +38,8 @@ func authUser(conf *config) *sysuser {
 			if conf.autologin {
 				break
 			}
-			log.Println("PromptEchoOn for login")
 			hostname, _ := os.Hostname()
 			fmt.Printf("%s login: ", hostname)
-			log.Println("wait for login")
 			input, err := bufio.NewReader(os.Stdin).ReadString('\n')
 			if err != nil {
 				return "", err
@@ -56,7 +49,6 @@ func authUser(conf *config) *sysuser {
 			log.Print(msg)
 			return "", nil
 		case pam.TextInfo:
-			log.Println("TextInfo for msg", msg)
 			fmt.Println(msg)
 			return "", nil
 		}
@@ -85,9 +77,6 @@ func authUser(conf *config) *sysuser {
 
 	err = trans.SetItem(pam.Tty, "tty"+conf.strTTY())
 	handleErr(err)
-
-	tmpUsr, _ := trans.GetItem(pam.User)
-	log.Println("tmp user:", tmpUsr)
 
 	err = trans.OpenSession(pam.Silent)
 	handleErr(err)

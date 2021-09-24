@@ -100,6 +100,7 @@ func newDefaultConfig() *config {
 		displayStartScript: "",
 		displayStopScript:  "",
 		sessionWrapper:     "",
+		pamService:         "emptty",
 	}
 
 	tmpLang, ok := os.LookupEnv("LANG")
